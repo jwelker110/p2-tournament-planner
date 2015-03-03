@@ -73,7 +73,7 @@ def playerStandings():
     """
     db = connect()
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM standings ORDER BY wins DESC;")
+    cursor.execute("SELECT * FROM standings ORDER BY wins DESC, id;")
     standings = cursor.fetchall()
     db.close()
     return standings
