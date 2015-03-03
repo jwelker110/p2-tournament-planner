@@ -128,29 +128,6 @@ def testPairings():
     print "8. After one match, players with one win are paired."
 
 
-def testRoundPairing():
-    deleteMatches()
-    deletePlayers()
-
-    # get number of rounds necessary
-    rounds = int(round(math.log(NUMBER_OF_PLAYERS, 2)))
-
-    for i in range(NUMBER_OF_PLAYERS):
-        registerPlayer("Player " + str(i))
-
-    for i in range(rounds):
-        print(i)
-        pairings = swissPairings()
-        if len(pairings) != NUMBER_OF_PLAYERS / 2:
-
-            raise ValueError(
-                "There must be %d pairings for %d players." % ((NUMBER_OF_PLAYERS / 2), NUMBER_OF_PLAYERS))
-        for pair in pairings:
-            reportMatch(pair[2], pair[0])
-
-    print("9. Matches successfully found for %d players through %d rounds." % (NUMBER_OF_PLAYERS, rounds))
-
-
 if __name__ == '__main__':
     testDeleteMatches()
     testDelete()
@@ -160,7 +137,6 @@ if __name__ == '__main__':
     testStandingsBeforeMatches()
     testReportMatches()
     testPairings()
-    testRoundPairing()
     print "Success!  All tests pass!"
 
 
