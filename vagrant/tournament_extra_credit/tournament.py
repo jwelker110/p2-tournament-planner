@@ -136,8 +136,6 @@ def reportMatch(player_one_id, player_two_id, winner_id, tourney_id):
     if player_one_id is None:
         player_one_id = player_two_id
         player_two_id = None
-
-    if player_two_id is None:
         winner_id = player_one_id
 
     with closing(connect()) as db:
@@ -210,6 +208,7 @@ def swissPairings(tourney_id):
 def findByePlayer(standings, matches, length):
     # find the bye player for the round
     for i in range(length - 1, -1, -1):
+        print "this is : " + str(i)
         is_bye_player = True
         bye_player = [standings[i][0], standings[i][1]]
         for match in matches:

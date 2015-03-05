@@ -6,7 +6,7 @@ from tournament import *
 import math
 import random
 
-NUMBER_OF_PLAYERS = 64
+NUMBER_OF_PLAYERS = 25
 
 def testDeleteMatches():
     deleteMatchesFromTournament(tourney_id)
@@ -140,16 +140,16 @@ def testRoundPairing():
         registerPlayer("Player " + str(i + 1), tourney_id)
 
     for i in range(rounds):
-        print(i)
         pairings = swissPairings(tourney_id)
-        if len(pairings) != round(NUMBER_OF_PLAYERS / 2.0):
+        if len(pairings) != int(math.ceil(NUMBER_OF_PLAYERS / 2.0)):
             raise ValueError(
-                "There must be %d pairings for %d players." % ((NUMBER_OF_PLAYERS / 2), NUMBER_OF_PLAYERS))
+                "There must be %d pairings for %d players." % (int(math.ceil(NUMBER_OF_PLAYERS / 2.0)), NUMBER_OF_PLAYERS))
         for pair in pairings:
             if random.randrange(0, 2, 1) == 1:
                 reportMatch(pair[0], pair[2], pair[0], tourney_id)
             else:
                 reportMatch(pair[0], pair[2], pair[2], tourney_id)
+        # print(pairings)
 
     print("9. Matches successfully found for %d players through %d rounds." % (NUMBER_OF_PLAYERS, rounds))
 
@@ -164,14 +164,14 @@ if __name__ == '__main__':
     createNewTournament()
     global tourney_id
     tourney_id = getCurrentTournamentId()
-    testDeleteMatches()
-    testDelete()
-    testCount()
-    testRegister()
-    testRegisterCountDelete()
-    testStandingsBeforeMatches()
-    testReportMatches()
-    testPairings()
+    # testDeleteMatches()
+    # testDelete()
+    # testCount()
+    # testRegister()
+    # testRegisterCountDelete()
+    # testStandingsBeforeMatches()
+    # testReportMatches()
+    # testPairings()
     testRoundPairing()
     print "Success!  All tests pass!"
 
