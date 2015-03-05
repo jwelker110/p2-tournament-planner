@@ -13,55 +13,76 @@ def connect():
     return psycopg2.connect("dbname=tournament_ec")
 
 
+def createNewTournament():
+    with closing(connect()) as db:
+        cursor = db.cursor()
+        current = getCurrentTournamentId()
+        # if no tourneys have been registered yet
+        if current is None:
+            current = 0
+        else:
+            current += 1
+        cursor.execute("INSERT INTO tournament_tracker (id) VALUES(%s);", (str(current),))
+        db.commit()
+
+
+def getCurrentTournamentId():
+    with closing(connect()) as db:
+        cursor = db.cursor()
+        cursor.execute("SELECT max(id) FROM tournament_tracker;")
+        current_tourney = cursor.fetchone()[0]
+
+    return current_tourney
+
+
 def deleteAllMatches():
     """Remove all the match records from the database."""
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            query = "DELETE FROM matches;"
-            cursor.execute(query)
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM matches;")
+        db.commit()
 
 
 def deleteMatchesFromTournament(tourney_id):
     """Remove all the match records from the database for the current tournament."""
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            query = "DELETE FROM matches WHERE tourney_id=(%d);", (tourney_id,)
-            cursor.execute(query)
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM matches WHERE tourney_id=(%s);", (str(tourney_id),))
+        db.commit()
 
 
 def deleteAllPlayers():
     """Remove all the player records from the database."""
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            query = "DELETE FROM players;"
-            cursor.execute(query)
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM players;")
+        db.commit()
 
 
 def deletePlayersFromTournament(tourney_id):
     """Remove all the player records from the database for the current tournament."""
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            query = "DELETE FROM players WHERE tourney_id=(%d);", (tourney_id,)
-            cursor.execute(query)
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM players WHERE tourney_id=(%s);", (str(tourney_id),))
+        db.commit()
 
 
-def countPlayers():
+def countTotalPlayers():
     """Returns the number of players currently registered."""
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            query = "SELECT count(id) FROM players;"
-            cursor.execute(query)
-            players = cursor.fetchone()[0]
+        cursor = db.cursor()
+        cursor.execute("SELECT count(id) FROM players;")
+        players = cursor.fetchone()[0]
 
     return players
+
 
 def countPlayersFromTournament(tourney_id):
     """Returns the number of players currently registered for the current tournament."""
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            query = "SELECT count(id) FROM players WHERE tourney_id=(%d);", (tourney_id,)
-            cursor.execute(query)
-            players = cursor.fetchone()[0]
+        cursor = db.cursor()
+        cursor.execute("SELECT count(id) FROM players WHERE tourney_id=(%s);", (str(tourney_id),))
+        players = cursor.fetchone()[0]
 
     return players
 
@@ -76,8 +97,9 @@ def registerPlayer(name, tourney_id):
       name: the player's full name (need not be unique).
     """
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            cursor.execute("INSERT INTO players (name, tourney_id) VALUES(%s, %d);", (name, tourney_id))
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO players (name, tourney_id) VALUES(%s, %s);", (name, str(tourney_id)))
+        db.commit()
 
 
 def playerStandings(tourney_id):
@@ -94,24 +116,32 @@ def playerStandings(tourney_id):
         matches: the number of matches the player has played
     """
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            cursor.execute("SELECT * FROM standings WHERE tourney_id=(%d) ORDER BY wins DESC, id;", (tourney_id,))
-            standings = cursor.fetchall()
+        cursor = db.cursor()
+        cursor.execute("SELECT * FROM standings WHERE tourney_id=(%s) ORDER BY wins DESC, id;", (str(tourney_id),))
+        standings = cursor.fetchall()
 
     return standings
 
 
-def reportMatch(winner, loser, tourney_id):
+def reportMatch(player_one_id, player_two_id, winner_id, tourney_id):
     """Records the outcome of a single match between two players.
 
     Args:
-      winner:  the id number of the player who won
-      loser:  the id number of the player who lost
+      player_one_id:  the id number of the first player
+      player_two_id:  the id number of the second player
+      winner_id: the id number of the player who won
+      tourney_id: the id number of the tournament
     """
+    if player_one_id is None:
+        player_one_id = player_two_id
+        player_two_id = None
+
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO matches (win_id, lose_id, tourney_id) VALUES(%s, %s, %d);", (winner, loser, tourney_id))
+        cursor = db.cursor()
+        cursor.execute(
+            "INSERT INTO matches (player_one_id, player_two_id, winner_id, tourney_id) VALUES(%s, %s, %s, %s);", (player_one_id, player_two_id, winner_id, str(tourney_id),))
+        db.commit()
+
 
 def swissPairings(tourney_id):
     """Returns a list of pairs of players for the next round of a match.
@@ -128,15 +158,21 @@ def swissPairings(tourney_id):
         id2: the second player's unique id
         name2: the second player's name
     """
-
     with closing(connect()) as db:
-        with db.cursor() as cursor:
-            cursor.execute("SELECT win_id, lose_id FROM matches WHERE tourney_id=(%d);", (tourney_id,))
-            matches = cursor.fetchall()
+        cursor = db.cursor()
+        cursor.execute("SELECT player_one_id, player_two_id FROM matches WHERE tourney_id=(%s);", (str(tourney_id),))
+        matches = cursor.fetchall()
+        db.commit()
 
-    standings = playerStandings()
+    standings = playerStandings(tourney_id)
     pairings = []
-    length = len(standings)
+    length = countPlayersFromTournament(tourney_id)
+
+    if length % 2 == 1:
+        bye_player_index = findByePlayer(standings, matches, length)
+        bye_player = standings[bye_player_index]
+        pairings.append((bye_player[0], bye_player[1], None, None))
+        standings[bye_player_index] = None
 
     # start from the highest ranked player
     for i in range(length - 1):
@@ -167,10 +203,28 @@ def swissPairings(tourney_id):
     return pairings
 
 
+def findByePlayer(standings, matches, length):
+    # find the bye player for the round
+    for i in range(length - 1, -1, -1):
+        is_bye_player = True
+        bye_player = [standings[i][0], standings[i][1]]
+        for match in matches:
+            if match[0] == bye_player[0] and match[1] is None:
+                is_bye_player = False
+                break
+        if not is_bye_player:
+            continue
+        print "9.5. Bye Player ID: " + str(bye_player[0]) + " Name: " + bye_player[1]
+        # return index of bye player
+        return i
+    return None
+
+
 def playersAlreadyMatched(pairing, matches):
     for match in matches:
         # check for previous match with these players
         if (match[0] == pairing[0][0] and match[1] == pairing[1][0]) or \
-                (match[0] == pairing[1][0] and match[1] == pairing[0][0]):
+                (match[0] == pairing[1][0] and match[1] == pairing[0][0]) or \
+                (match[0] == pairing[1][0] and match[1] is None):
             return True
     return False
