@@ -113,6 +113,7 @@ def playerStandings(tourney_id):
         id: the player's unique id (assigned by the database)
         name: the player's full name (as registered)
         wins: the number of matches the player has won
+        draws: the number of matches the player has drawn
         matches: the number of matches the player has played
     """
     with closing(connect()) as db:
@@ -135,6 +136,9 @@ def reportMatch(player_one_id, player_two_id, winner_id, tourney_id):
     if player_one_id is None:
         player_one_id = player_two_id
         player_two_id = None
+
+    if player_two_id is None:
+        winner_id = player_one_id
 
     with closing(connect()) as db:
         cursor = db.cursor()

@@ -4,8 +4,9 @@
 
 from tournament import *
 import math
+import random
 
-NUMBER_OF_PLAYERS = 17
+NUMBER_OF_PLAYERS = 64
 
 def testDeleteMatches():
     deleteMatchesFromTournament(tourney_id)
@@ -70,9 +71,9 @@ def testStandingsBeforeMatches():
                          "they have played any matches.")
     elif len(standings) > 2:
         raise ValueError("Only registered players should appear in standings.")
-    if len(standings[0]) != 5:
-        raise ValueError("Each playerStandings row should have five columns.")
-    [(id1, name1, wins1, matches1, tourney), (id2, name2, wins2, matches2, tourney)] = standings
+    if len(standings[0]) != 6:
+        raise ValueError("Each playerStandings row should have six columns.")
+    [(id1, name1, wins1, draws1, matches1, tourney), (id2, name2, wins2, draws2, matches2, tourney)] = standings
     if matches1 != 0 or matches2 != 0 or wins1 != 0 or wins2 != 0:
         raise ValueError(
             "Newly registered players should have no matches or wins.")
@@ -94,7 +95,7 @@ def testReportMatches():
     reportMatch(id1, id2, id1, tourney_id)
     reportMatch(id3, id4, id3, tourney_id)
     standings = playerStandings(tourney_id)
-    for (i, n, w, m, t) in standings:
+    for (i, n, w, d, m, t) in standings:
         if m != 1:
             raise ValueError("Each player should have one match recorded.")
         if i in (id1, id3) and w != 1:
@@ -145,7 +146,10 @@ def testRoundPairing():
             raise ValueError(
                 "There must be %d pairings for %d players." % ((NUMBER_OF_PLAYERS / 2), NUMBER_OF_PLAYERS))
         for pair in pairings:
-            reportMatch(pair[0], pair[2], pair[0], tourney_id)
+            if random.randrange(0, 2, 1) == 1:
+                reportMatch(pair[0], pair[2], pair[0], tourney_id)
+            else:
+                reportMatch(pair[0], pair[2], pair[2], tourney_id)
 
     print("9. Matches successfully found for %d players through %d rounds." % (NUMBER_OF_PLAYERS, rounds))
 

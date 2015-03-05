@@ -39,8 +39,14 @@ ALTER SEQUENCE matches_id_seq RESTART WITH 1;
 ALTER SEQUENCE players_id_seq RESTART WITH 1;
 ALTER SEQUENCE tournament_tracker_id_seq RESTART WITH 1;
 
-CREATE VIEW standings (id, name, wins, matches, tourney_id) AS
-  SELECT p.id, p.name, count(m.winner_id=p.id), player_matches.num_matches, p.tourney_id
+CREATE VIEW standings (id, name, wins, draws, matches, tourney_id) AS
+  SELECT
+    p.id,
+    p.name,
+    count(m.winner_id=p.id),
+    count(m.winner_id=NULL AND m.player_one_id=p.id OR m.player_two_id=p.id),
+    player_matches.num_matches,
+    p.tourney_id
   FROM players as p
     LEFT JOIN matches as m
   ON p.id=m.player_one_id
