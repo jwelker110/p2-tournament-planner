@@ -5,6 +5,7 @@
 from tournament import *
 import math
 import random
+import profile
 
 NUMBER_OF_PLAYERS = 8
 
@@ -130,7 +131,7 @@ def testPairings():
 
 def testRoundPairing():
 
-    for numPlayers in range(4, 512, 2):
+    for numPlayers in range(4, 16, 2):
         deleteMatches()
         deletePlayers()
         global NUMBER_OF_PLAYERS

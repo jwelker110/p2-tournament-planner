@@ -125,7 +125,9 @@ def swissPairings():
     paired_players_two = []
     pairings = []
 
+    print "start"
     if findPairings(standings, matches, length, 0):
+        print "end"
         return pairings
     else:
         raise ValueError(
