@@ -4,8 +4,9 @@
 
 from tournament import *
 import math
+import random
 
-NUMBER_OF_PLAYERS = 512
+NUMBER_OF_PLAYERS = 8
 
 def testDeleteMatches():
     deleteMatches()
@@ -127,16 +128,46 @@ def testPairings():
             "After one match, players with one win should be paired.")
     print "8. After one match, players with one win are paired."
 
+def testRoundPairing():
+
+    for numPlayers in range(4, 512, 2):
+        deleteMatches()
+        deletePlayers()
+        global NUMBER_OF_PLAYERS
+        NUMBER_OF_PLAYERS = 8
+        print "Finding pairings for %d players" % NUMBER_OF_PLAYERS
+        # get number of rounds necessary
+        rounds = int(math.log(NUMBER_OF_PLAYERS, 2))
+
+        for i in range(NUMBER_OF_PLAYERS):
+            registerPlayer("Player " + str(i + 1))
+
+        for i in range(rounds):
+            pairings = swissPairings()
+            if len(pairings) != int(math.ceil(NUMBER_OF_PLAYERS / 2.0)):
+                raise ValueError(
+                    "There must be %d pairings for %d players." % (int(math.ceil(NUMBER_OF_PLAYERS / 2.0)), NUMBER_OF_PLAYERS))
+            for pair in pairings:
+                # print pair
+                if random.randrange(0, 2, 1) == 1:
+                    reportMatch(pair[0], pair[2])
+                else:
+                    reportMatch(pair[2], pair[0])
+
+
+
+
 
 if __name__ == '__main__':
-    testDeleteMatches()
-    testDelete()
-    testCount()
-    testRegister()
-    testRegisterCountDelete()
-    testStandingsBeforeMatches()
-    testReportMatches()
-    testPairings()
+    # testDeleteMatches()
+    # testDelete()
+    # testCount()
+    # testRegister()
+    # testRegisterCountDelete()
+    # testStandingsBeforeMatches()
+    # testReportMatches()
+    # testPairings()
+    testRoundPairing()
     print "Success!  All tests pass!"
 
 

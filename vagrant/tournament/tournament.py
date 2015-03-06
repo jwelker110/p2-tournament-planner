@@ -4,6 +4,7 @@
 #
 
 import psycopg2
+from itertools import izip
 
 
 def connect():
@@ -115,42 +116,112 @@ def swissPairings():
     db.close()
 
     standings = playerStandings()
-    pairings = []
     length = len(standings)
 
-    # start from the highest ranked player
-    for i in range(length - 1):
-        if standings[i] is None:
-            continue
-        # set first opponent of pair, (id, name)
-        first_opponent = [standings[i][0], standings[i][1]]
-        # removing opponent from list of possible opponents
-        standings[i] = None
+    # this needs to be declared outside function
+    # tracks which players are paired
+    global paired_players_one, paired_players_two, pairings
+    paired_players_one = []
+    paired_players_two = []
+    pairings = []
 
-        # start from player adjacent in rank to first opponent
-        for j in range(i + 1, length, 1):
-            # make sure an opponent is at this index
-            if standings[j] is None:
-                continue
-            # set second opponent of pair, (id, name)
-            second_opponent = [standings[j][0], standings[j][1]]
+    if findPairings(standings, matches, length, 0):
+        return pairings
+    else:
+        raise ValueError(
+            "Pairings could not be found"
+        )
+    # # start from the highest ranked player
+    # for i in range(length - 1):
+    #     if standings[i] is None:
+    #         continue
+    #     # set first opponent of pair, (id, name)
+    #     first_opponent = [standings[i][0], standings[i][1]]
+    #     # removing opponent from list of possible opponents
+    #     standings[i] = None
+    #
+    #     # start from player adjacent in rank to first opponent
+    #     for j in range(i + 1, length, 1):
+    #         # make sure an opponent is at this index
+    #         if standings[j] is None:
+    #             continue
+    #         # set second opponent of pair, (id, name)
+    #         second_opponent = [standings[j][0], standings[j][1]]
+    #
+    #         # if players haven't played together yet, pair is accepted
+    #         if not playersAlreadyMatched([first_opponent, second_opponent], matches):
+    #             # print("i = (%d) j = (%d)" % (i, j))
+    #             # add pair to the pairings list, (id1, name1, id2, name2)
+    #             pairings.append((first_opponent[0], first_opponent[1], second_opponent[0], second_opponent[1]))
+    #             # remove second opponent from list of possible opponents
+    #             standings[j] = None
+    #             break
 
-            # if players haven't played together yet, pair is accepted
-            if not playersAlreadyMatched([first_opponent, second_opponent], matches):
-                # print("i = (%d) j = (%d)" % (i, j))
-                # add pair to the pairings list, (id1, name1, id2, name2)
-                pairings.append((first_opponent[0], first_opponent[1], second_opponent[0], second_opponent[1]))
-                # remove second opponent from list of possible opponents
-                standings[j] = None
+
+def findPairings(standings, matches, length, index):
+    # Base case, this function is being called when all pairs have been found
+    if len(paired_players_two) + len(paired_players_one) == len(standings):
+        return True
+
+    first_opponent = standings[index]
+    # find first opponent
+    for i in range(index, length, 1):
+        already_paired = False
+        first_opponent = standings[i]
+        for one, two in izip(paired_players_one, paired_players_two):
+            if first_opponent[0] == one or first_opponent[0] == two:
+                already_paired = True
                 break
+        if already_paired:
+            continue
 
-    return pairings
+        paired_players_one.append(first_opponent[0])
+        # print "Paired One ", paired_players_one
+
+        # find second opponent
+        for j in range(index, length, 1):
+            already_paired = False
+            # print "Finding second"
+            second_opponent = standings[j]
+            if second_opponent[0] == first_opponent[0]:
+                continue
+
+            for one, two in izip(paired_players_one, paired_players_two):
+                # check if player has been paired
+                # if they have, find a new player
+                if second_opponent[0] == one or second_opponent[0] == two:
+                    already_paired = True
+                    break
+
+            if already_paired:
+                continue
+            if playersAlreadyMatched([first_opponent[0], second_opponent[0]], matches) is True:
+                # print "players already matched."
+                continue
+
+            # since players can be paired, add to them if the other players get paired
+            paired_players_two.append(second_opponent[0])
+            # print "Paired Two ", paired_players_two
+
+            if findPairings(standings, matches, length, index + 1) is True:
+                pairings.append((first_opponent[0], first_opponent[1], second_opponent[0], second_opponent[1]))
+                return True
+            else:
+                paired_players_two.remove(second_opponent[0])
+
+        paired_players_one.remove(first_opponent[0])
+
+    return False
+
+    # if all players are paired, add the pair to pairings and return true
+    # if returned false, find another pair.
+    # if no more pairs available, return false
 
 
 def playersAlreadyMatched(pairing, matches):
     for match in matches:
         # check for previous match with these players
-        if (match[0] == pairing[0][0] and match[1] == pairing[1][0]) or \
-                (match[0] == pairing[1][0] and match[1] == pairing[0][0]):
+        if (match[0] == pairing[0] and match[1] == pairing[1]) or \
+                (match[0] == pairing[1] and match[1] == pairing[0]):
             return True
     return False

@@ -171,10 +171,8 @@ def swissPairings(tourney_id):
     length = countPlayersFromTournament(tourney_id)
 
     if length % 2 == 1:
-        bye_player_index = findByePlayer(standings, matches, length)
-        bye_player = standings[bye_player_index]
-        pairings.append((bye_player[0], bye_player[1], None, None))
-        standings[bye_player_index] = None
+        standings.append((-1, None, None, None, None))
+        length += 1
 
     # start from the highest ranked player
     for i in range(length - 1):
