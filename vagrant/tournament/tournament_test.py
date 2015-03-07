@@ -131,11 +131,11 @@ def testPairings():
 
 def testRoundPairing():
 
-    for numPlayers in range(4, 16, 2):
+    for numPlayers in range(4, 512, 2):
         deleteMatches()
         deletePlayers()
         global NUMBER_OF_PLAYERS
-        NUMBER_OF_PLAYERS = 8
+        NUMBER_OF_PLAYERS = numPlayers
         print "Finding pairings for %d players" % NUMBER_OF_PLAYERS
         # get number of rounds necessary
         rounds = int(math.log(NUMBER_OF_PLAYERS, 2))
