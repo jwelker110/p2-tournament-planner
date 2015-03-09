@@ -5,7 +5,6 @@
 from tournament import *
 import math
 import random
-import profile
 
 NUMBER_OF_PLAYERS = 8
 
