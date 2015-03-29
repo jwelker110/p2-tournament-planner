@@ -41,7 +41,7 @@ ALTER SEQUENCE matches_id_seq RESTART WITH 1;
 ALTER SEQUENCE players_id_seq RESTART WITH 1;
 ALTER SEQUENCE tournament_tracker_id_seq RESTART WITH 1;
 
-CREATE FUNCTION test_opponent_wins (player_id integer, tourney integer) RETURNS TABLE (omw BIGINT, omw_tourney_id INT)
+CREATE FUNCTION opponent_wins (player_id integer, tourney integer) RETURNS table(omw BIGINT)
 AS $$
     DECLARE
       id INTEGER;
@@ -54,19 +54,20 @@ AS $$
                      FROM matches GROUP BY opponent_id)
         LOOP
           RETURN QUERY
-          EXECUTE format('SELECT wins, tourney_id FROM standings WHERE standings.id=%L', id);
+          EXECUTE format('SELECT count(*) FROM matches WHERE winner_id=%L AND tourney_id=%L GROUP BY winner_id', id, tourney);
         END LOOP ;
     END
 
 $$ LANGUAGE plpgsql;
 
-CREATE VIEW standings (id, name, wins, matches, tourney_id) AS
+CREATE VIEW standings (id, name, wins, matches, tourney_id, omw) AS
   SELECT
     p.id,
     p.name,
-    player_wins.num_wins,
+    player_wins.num_wins as wins,
     player_matches.num_matches,
-    p.tourney_id
+    p.tourney_id,
+    (SELECT sum(omw) FROM opponent_wins(p.id, p.tourney_id)) as omw
   FROM players as p
     LEFT JOIN matches as m
   ON p.id=m.player_one_id
@@ -92,42 +93,4 @@ CREATE VIEW standings (id, name, wins, matches, tourney_id) AS
 SELECT * FROM standings;
 SELECT * FROM matches;
 SELECT * FROM players;
-
-CREATE FUNCTION opponent_wins (player_id integer, tourney integer) RETURNS SETOF BIGINT AS $$
-    DECLARE
-      id INTEGER;
-    BEGIN
-      FOR id in (SELECT
-                       CASE WHEN player_one_id=player_id AND player_two_id IS NOT NULL AND tourney_id=tourney THEN player_two_id
-                       WHEN player_two_id=player_id AND tourney_id=tourney THEN player_one_id
-                       END AS opponent_id
-                     FROM matches GROUP BY opponent_id)
-        LOOP
-          RETURN QUERY
-          EXECUTE format('SELECT wins FROM standings WHERE standings.id=%L', id);
-        END LOOP ;
-    END
-
-$$ LANGUAGE plpgsql;
-
--- CREATE FUNCTION test_opponent_wins (player_id integer, tourney integer) RETURNS TABLE (id INT, omw BIGINT, omw_tourney_id INT) AS $$
---     DECLARE
---       id INTEGER;
---     BEGIN
---       FOR id in (SELECT
---                        CASE WHEN player_one_id=player_id AND player_two_id IS NOT NULL AND tourney_id=tourney THEN player_two_id
---                        WHEN player_two_id=player_id AND tourney_id=tourney THEN player_one_id
---                        END AS opponent_id
---                      FROM matches GROUP BY opponent_id)
---         LOOP
---           RETURN QUERY
---           EXECUTE format('SELECT id, wins, tourney_id FROM standings WHERE standings.id=%L', id);
---         END LOOP ;
---     END
---
--- $$ LANGUAGE plpgsql;
-
--- get total amount of opponent wins --
-SELECT SUM(opponent_wins) from opponent_wins(1, 1);
-SELECT * FROM test_opponent_wins(1, 1);
 
