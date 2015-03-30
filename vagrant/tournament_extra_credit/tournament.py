@@ -14,12 +14,13 @@ def connect():
 
 
 def createNewTournament():
+    """Creates a new tournament whose id is automatically incremented with each call"""
     with closing(connect()) as db:
         cursor = db.cursor()
         current = getCurrentTournamentId()
         # if no tourneys have been registered yet
         if current is None:
-            current = 0
+            current = 1
         else:
             current += 1
         cursor.execute("INSERT INTO tournament_tracker (id) VALUES(%s);", (str(current),))
@@ -27,6 +28,11 @@ def createNewTournament():
 
 
 def getCurrentTournamentId():
+    """Finds the current tournament
+
+    Returns:
+        The tournament id
+    """
     with closing(connect()) as db:
         cursor = db.cursor()
         cursor.execute("SELECT max(id) FROM tournament_tracker;")
@@ -95,6 +101,7 @@ def registerPlayer(name, tourney_id):
   
     Args:
       name: the player's full name (need not be unique).
+      tourney_id: the tourney_id of tournament to register the player in
     """
     with closing(connect()) as db:
         cursor = db.cursor()
@@ -102,23 +109,51 @@ def registerPlayer(name, tourney_id):
         db.commit()
 
 
-def playerStandings(tourney_id):
-    """Returns a list of the players and their win records, sorted by wins.
+def findPlayerOMW(player_id, tourney_id, cursor):
 
-    The first entry in the list should be the player in first place, or a player
-    tied for first place if there is currently a tie.
+    opponent_match_wins = 0
+
+    # First group of opponents
+    cursor.execute(""
+                   "SELECT player_one_id FROM matches "
+                   "WHERE player_two_id=(%s) AND tourney_id=(%s) "
+                   "AND winner_id IS NOT NULL;", (str(player_id), str(tourney_id)))
+    opponents = cursor.fetchall()
+
+    # Second group of opponents
+    cursor.execute(""
+                   "SELECT player_two_id FROM matches "
+                   "WHERE player_one_id=(%s) AND tourney_id=(%s) "
+                   "AND winner_id IS NOT NULL;", (str(player_id), str(tourney_id)))
+    opponents.append(cursor.fetchall())
+
+    for opponent in opponents:
+        cursor.execute(""
+                       "SELECT wins FROM standings "
+                       "WHERE id=(%s);", (str(opponent[0]),))
+    opponent_match_wins += cursor.fetchall()[0]
+
+    return opponent_match_wins
+
+
+def playerStandings(tourney_id):
+    """Returns a list of the players and their win records, sorted by wins and
+    opponent match wins.
+
+    The first entry in the list should be the player in first place.
 
     Returns:
-      A list of tuples, each of which contains (id, name, wins, matches):
+      A list of tuples, each of which contains (id, name, wins, matches, tourney_id, omw):
         id: the player's unique id (assigned by the database)
         name: the player's full name (as registered)
         wins: the number of matches the player has won
-        draws: the number of matches the player has drawn
         matches: the number of matches the player has played
+        tourney_id: the tournament id associated with this player
+        omw: Opponent Match Wins: the number of total wins opponents of this player have
     """
     with closing(connect()) as db:
         cursor = db.cursor()
-        cursor.execute("SELECT * FROM standings WHERE tourney_id=(%s) ORDER BY wins DESC, id;", (str(tourney_id),))
+        cursor.execute("SELECT * FROM standings WHERE tourney_id=(%s) ORDER BY wins DESC, omw DESC ;", (str(tourney_id),))
         standings = cursor.fetchall()
 
     return standings
@@ -127,12 +162,15 @@ def playerStandings(tourney_id):
 def reportMatch(player_one_id, player_two_id, winner_id, tourney_id):
     """Records the outcome of a single match between two players.
 
+        Matches that do not have a winner are recognized as a draw.
+
     Args:
       player_one_id:  the id number of the first player
       player_two_id:  the id number of the second player
       winner_id: the id number of the player who won
       tourney_id: the id number of the tournament
     """
+    # Match is a bye, enter player as player one
     if player_one_id is None:
         player_one_id = player_two_id
         player_two_id = None
@@ -152,6 +190,9 @@ def swissPairings(tourney_id):
     appears exactly once in the pairings.  Each player is paired with another
     player with an equal or nearly-equal win record, that is, a player adjacent
     to him or her in the standings.
+
+    When an odd number of players are registered, one player is given a bye.
+    Players may not receive more than one bye in a tournament.
   
     Returns:
       A list of tuples, each of which contains (id1, name1, id2, name2)
@@ -160,72 +201,62 @@ def swissPairings(tourney_id):
         id2: the second player's unique id
         name2: the second player's name
     """
-    with closing(connect()) as db:
-        cursor = db.cursor()
-        cursor.execute("SELECT player_one_id, player_two_id FROM matches WHERE tourney_id=(%s);", (str(tourney_id),))
-        matches = cursor.fetchall()
-        db.commit()
-
     standings = playerStandings(tourney_id)
     pairings = []
     length = countPlayersFromTournament(tourney_id)
+    append = pairings.append
 
+    # Odd number of players
     if length % 2 == 1:
-        standings.append((-1, None, None, None, None))
-        length += 1
+        bye_player_index = findByePlayer(standings, tourney_id)
+        # bye player not found
+        if bye_player_index is None:
+            raise ValueError(
+                "Could not find bye player for this round"
+            )
+        # report bye and remove player from standings
+        reportMatch(standings[bye_player_index][0], None, standings[bye_player_index][0], tourney_id)
+        del standings[bye_player_index]
 
     # start from the highest ranked player
-    for i in range(length - 1):
-        if standings[i] is None:
-            continue
-        # set first opponent of pair, (id, name)
-        first_opponent = [standings[i][0], standings[i][1]]
-        # removing opponent from list of possible opponents
-        standings[i] = None
-
-        # start from player adjacent in rank to first opponent
-        for j in range(i + 1, length, 1):
-            # make sure an opponent is at this index
-            if standings[j] is None:
-                continue
-            # set second opponent of pair, (id, name)
-            second_opponent = [standings[j][0], standings[j][1]]
-
-            # if players haven't played together yet, pair is accepted
-            if not playersAlreadyMatched([first_opponent, second_opponent], matches):
-                # print("i = (%d) j = (%d)" % (i, j))
-                # add pair to the pairings list, (id1, name1, id2, name2)
-                pairings.append((first_opponent[0], first_opponent[1], second_opponent[0], second_opponent[1]))
-                # remove second opponent from list of possible opponents
-                standings[j] = None
-                break
+    for i in range(0, length - 1, 2):
+        # add pair to the pairings list, (id1, name1, id2, name2)
+        append((standings[i][0], standings[i][1], standings[i+1][0], standings[i+1][1]))
 
     return pairings
 
 
-def findByePlayer(standings, matches, length):
+def findByePlayer(standings, tourney_id):
+    """ Finds the player that deserves the Bye for the round and hasn't
+    already received one.
+
+    Returns:
+        The index of the location of the player in the standings
+    """
+
     # find the bye player for the round
-    for i in range(length - 1, -1, -1):
-        print "this is : " + str(i)
-        is_bye_player = True
-        bye_player = [standings[i][0], standings[i][1]]
-        for match in matches:
-            if match[0] == bye_player[0] and match[1] is None:
-                is_bye_player = False
+    with closing(connect()) as db:
+        cursor = db.cursor()
+        cursor.execute("SELECT player_one_id FROM matches WHERE player_two_id=NULL AND tourney_id=(%s);", (str(tourney_id),))
+        previous_bye_matches = cursor.fetchall()
+
+    # check each player starting at lowest ranked until eligible player found
+    for i in range(countPlayersFromTournament(tourney_id) - 1, -1, -1):
+        for match in previous_bye_matches:
+            if match[0] == standings[i][0]:
                 break
-        if not is_bye_player:
-            continue
-        print "9.5. Bye Player ID: " + str(bye_player[0]) + " Name: " + bye_player[1]
-        # return index of bye player
         return i
+
     return None
 
 
-def playersAlreadyMatched(pairing, matches):
-    for match in matches:
-        # check for previous match with these players
-        if (match[0] == pairing[0][0] and match[1] == pairing[1][0]) or \
-                (match[0] == pairing[1][0] and match[1] == pairing[0][0]) or \
-                (match[0] == pairing[1][0] and match[1] is None):
-            return True
-    return False
+def resetDatabase():
+    """ removes current data from database and resets serial columns """
+    deleteAllMatches()
+    deleteAllPlayers()
+
+    with closing(connect()) as db:
+        cursor = db.cursor()
+        cursor.execute("ALTER SEQUENCE matches_id_seq RESTART WITH 1;")
+        cursor.execute("ALTER SEQUENCE players_id_seq RESTART WITH 1;")
+        cursor.execute("ALTER SEQUENCE tournament_tracker_id_seq RESTART WITH 1;")
