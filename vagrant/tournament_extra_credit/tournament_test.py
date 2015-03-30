@@ -6,7 +6,7 @@ from tournament import *
 import math
 import random
 
-NUMBER_OF_PLAYERS = 25
+NUMBER_OF_PLAYERS = 10
 
 def testDeleteMatches():
     deleteMatchesFromTournament(tourney_id)
@@ -61,8 +61,11 @@ def testRegisterCountDelete():
 
 
 def testStandingsBeforeMatches():
-    deleteMatchesFromTournament(tourney_id)
-    deletePlayersFromTournament(tourney_id)
+    deleteAllMatches()
+    deleteAllPlayers()
+    createNewTournament()
+    global tourney_id
+    tourney_id = getCurrentTournamentId()
     registerPlayer("Melpomene Murray", tourney_id)
     registerPlayer("Randy Schwartz", tourney_id)
     standings = playerStandings(tourney_id)
@@ -73,7 +76,7 @@ def testStandingsBeforeMatches():
         raise ValueError("Only registered players should appear in standings.")
     if len(standings[0]) != 6:
         raise ValueError("Each playerStandings row should have six columns.")
-    [(id1, name1, wins1, draws1, matches1, tourney), (id2, name2, wins2, draws2, matches2, tourney)] = standings
+    [(id1, name1, wins1, matches1, tourney1, omw1), (id2, name2, wins2, matches2, tourney2, omw2)] = standings
     if matches1 != 0 or matches2 != 0 or wins1 != 0 or wins2 != 0:
         raise ValueError(
             "Newly registered players should have no matches or wins.")
@@ -95,7 +98,7 @@ def testReportMatches():
     reportMatch(id1, id2, id1, tourney_id)
     reportMatch(id3, id4, id3, tourney_id)
     standings = playerStandings(tourney_id)
-    for (i, n, w, d, m, t) in standings:
+    for (i, n, w, m, t, o) in standings:
         if m != 1:
             raise ValueError("Each player should have one match recorded.")
         if i in (id1, id3) and w != 1:
@@ -141,38 +144,67 @@ def testRoundPairing():
 
     for i in range(rounds):
         pairings = swissPairings(tourney_id)
-        if len(pairings) != int(math.ceil(NUMBER_OF_PLAYERS / 2.0)):
+        if len(pairings) != int(NUMBER_OF_PLAYERS / 2):
             raise ValueError(
-                "There must be %d pairings for %d players." % (int(math.ceil(NUMBER_OF_PLAYERS / 2.0)), NUMBER_OF_PLAYERS))
+                "There must be %d pairings for %d players." % (int(NUMBER_OF_PLAYERS / 2), NUMBER_OF_PLAYERS))
         for pair in pairings:
-            if random.randrange(0, 2, 1) == 1:
+            if random.randrange(0, 2, 1) == 0:
                 reportMatch(pair[0], pair[2], pair[0], tourney_id)
             else:
                 reportMatch(pair[0], pair[2], pair[2], tourney_id)
-        # print(pairings)
 
     print("9. Matches successfully found for %d players through %d rounds." % (NUMBER_OF_PLAYERS, rounds))
 
 
-def testReportingBye():
-    reportMatch(16, None, 16, tourney_id)
+def testOMW():
+    """
+    checks to make sure that winner will be chosen based
+    on opponent match wins when there is a tie between two players
 
-    print("10. Bye successfully reported.")
+    In this scenario, player 1 and player 2 will have 2 wins each.
+    Player one's opponents (player 2, player 3) have a total of 3 wins.
+    Player two's opponents (player 1, player 4) have a total of 2 wins.
+    Player one should be the winner.
+    """
+    resetDatabase()
+    createNewTournament()
+    global tourney_id
+    tourney_id = getCurrentTournamentId()
+
+    # players to test OMW
+    registerPlayer('Player 1', tourney_id)
+    registerPlayer('Player 2', tourney_id)
+    registerPlayer('Player 3', tourney_id)
+    registerPlayer('Player 4', tourney_id)
+
+    reportMatch(1, 2, 1, tourney_id)
+    reportMatch(1, 2, 2, tourney_id)
+    reportMatch(2, 4, 2, tourney_id)
+    reportMatch(1, 3, 1, tourney_id)
+    reportMatch(4, 3, 3, tourney_id)
+
+    standings = playerStandings(tourney_id)
+    # check to make sure player one has 3 omw
+    if standings[0][5] == 3:
+        print "10. Winner found using Opponent Match Wins. Player 1 with 3 OMW"
+    else:
+        print "10. Winner could not be determined using Opponent Match Wins"
 
 
 if __name__ == '__main__':
     createNewTournament()
     global tourney_id
     tourney_id = getCurrentTournamentId()
-    # testDeleteMatches()
-    # testDelete()
-    # testCount()
-    # testRegister()
-    # testRegisterCountDelete()
-    # testStandingsBeforeMatches()
-    # testReportMatches()
-    # testPairings()
+    testDeleteMatches()
+    testDelete()
+    testCount()
+    testRegister()
+    testRegisterCountDelete()
+    testStandingsBeforeMatches()
+    testReportMatches()
+    testPairings()
     testRoundPairing()
+    testOMW()
     print "Success!  All tests pass!"
 
 
