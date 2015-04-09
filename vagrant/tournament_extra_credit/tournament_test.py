@@ -185,8 +185,8 @@ def testOMW():
 
     standings = playerStandings(tourney_id)
     # check to make sure player one has 3 omw
-    if standings[0][5] == 3:
-        print "10. Winner found using Opponent Match Wins. Player 1 with 3 OMW"
+    if standings[0][5] == 3 and standings[0][1] == 'Player 1':
+        print "10. Winner found using Opponent Match Wins. %s with %d OMW" % (standings[0][1], standings[0][5])
     else:
         print "10. Winner could not be determined using Opponent Match Wins"
 
